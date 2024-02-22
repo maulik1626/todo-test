@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:services/local_db_services/nosql_services/hive_db_helper.dart';
 import 'package:todo_app/constants/box_names.dart';
@@ -11,6 +12,15 @@ class HomeScreenProvider extends ChangeNotifier with HiveDBHelper {
   TextEditingController taskDescriptionController = TextEditingController();
 
   void init() async {
+    // Get the tasks from the firebase
+    final FirebaseFirestore firestore = FirebaseFirestore.instance;
+    final CollectionReference todoTasks = firestore.collection('todo');
+    final DocumentSnapshot snapshot = await todoTasks.doc('tasks').get();
+    final data = snapshot.data();
+    print('data: ${data.runtimeType}');
+    print('data: ${data.toString()}');
+
+    // Get the tasks from the local database
     tasks = await fetchAllData(BoxNames.taskBox);
     log("init loaded successfully");
     log(tasks.toString());
@@ -30,31 +40,30 @@ class HomeScreenProvider extends ChangeNotifier with HiveDBHelper {
     notifyListeners();
   }
 
-  void updateTask(int index, String updatedTitle, String updatedDescription) {
+  void updateTask(int index, String updatedTitle, String updatedDescription) async {
     Task updatedTask = Task(
       title: updatedTitle,
       description: updatedDescription,
       date: DateTime.now(),
     );
 
-    // Update the task in the tasks list
     tasks![index] = updatedTask;
 
-    // Update the task in the local database
-    updateData(BoxNames.taskBox, index, updatedTask);
+    _taskKey = await retrieveBoxKey(BoxNames.taskBox);
+
+    updateData(BoxNames.taskBox, _taskKey!, updatedTask);
 
     // Notify listeners to trigger a rebuild
     notifyListeners();
   }
 
-  void deleteTask(int index) {
-    // Delete the task from the tasks list
+  void deleteTask(int index) async {
     tasks!.removeAt(index);
 
-    // Delete the task from the local database
-    deleteData(BoxNames.taskBox, index);
+    _taskKey = await retrieveBoxKey(BoxNames.taskBox);
 
-    // Notify listeners to trigger a rebuild
+    deleteData(BoxNames.taskBox, _taskKey!);
+
     notifyListeners();
   }
 }
